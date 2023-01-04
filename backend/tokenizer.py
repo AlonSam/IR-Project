@@ -3,7 +3,6 @@ from collections import Counter
 from typing import List, Tuple
 from nltk import PorterStemmer, SnowballStemmer
 from nltk.corpus import stopwords
-from backend.inverted_index import InvertedIndex
 
 
 class Tokenizer:
@@ -27,7 +26,7 @@ class Tokenizer:
         tokens = [token.group() for token in self.RE_WORD.finditer(text.lower())]
         return [token for token in tokens if token not in self.stopwords]
 
-    def _word_count(self, tokens: List[str], id: int, stemming: bool) -> List[Tuple]:
+    def _word_count(self, tokens: List[str], doc_id: int, stemming: bool) -> List[Tuple]:
         ''' Count the frequency of each word in `text` (tf) that is not included in
         `all_stopwords` and return entries that will go into our posting lists.
         Parameters:
@@ -46,4 +45,4 @@ class Tokenizer:
             counter = Counter([self.snowball_stemmer.stem(token) for token in tokens])
         else:
             counter = Counter(tokens)
-        return [(token, (id, count)) for (token, count) in counter.items()]
+        return [(token, (doc_id, count)) for (token, count) in counter.items()]
