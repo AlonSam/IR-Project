@@ -20,7 +20,7 @@ BLOCK_SIZE = 1999998
 class MultiFileWriter:
     """ Sequential binary writer to multiple files of up to BLOCK_SIZE each. """
 
-    def __init__(self, base_dir, name, bucket_name):
+    def __init__(self, base_dir, name, bucket_name, index_name):
         self._base_dir = Path(base_dir)
         self._name = name
         self._file_gen = (open(self._base_dir / f'{name}_{i:03}.bin', 'wb')
@@ -29,6 +29,7 @@ class MultiFileWriter:
         # Connecting to google storage bucket.
         self.client = storage.Client()
         self.bucket = self.client.bucket(bucket_name)
+        self.index_name = index_name
 
     def write(self, b):
         locs = []
@@ -54,7 +55,7 @@ class MultiFileWriter:
             The function saves the posting files into the right bucket in google storage.
         '''
         file_name = self._f.name
-        blob = self.bucket.blob(f"postings_gcp/{file_name}")
+        blob = self.bucket.blob(f"postings_gcp_{self.index_name}/{file_name}")
         blob.upload_from_filename(file_name)
 
 
@@ -176,11 +177,11 @@ class InvertedIndex:
             p.unlink()
 
     @staticmethod
-    def write_a_posting_list(b_w_pl, bucket_name):
+    def write_a_posting_list(b_w_pl, bucket_name, index_name):
         posting_locs = defaultdict(list)
         bucket_id, list_w_pl = b_w_pl
 
-        with closing(MultiFileWriter(".", bucket_id, bucket_name)) as writer:
+        with closing(MultiFileWriter(".", bucket_id, bucket_name, index_name)) as writer:
             for w, pl in list_w_pl:
                 # convert to bytes
                 b = b''.join([(doc_id << 16 | (tf & TF_MASK)).to_bytes(TUPLE_SIZE, 'big')
@@ -190,16 +191,16 @@ class InvertedIndex:
                 # save file locations to index
                 posting_locs[w].extend(locs)
             writer.upload_to_gcp()
-            InvertedIndex._upload_posting_locs(bucket_id, posting_locs, bucket_name)
+            InvertedIndex._upload_posting_locs(bucket_id, posting_locs, bucket_name, index_name)
         return bucket_id
 
     @staticmethod
-    def _upload_posting_locs(bucket_id, posting_locs, bucket_name):
+    def _upload_posting_locs(bucket_id, posting_locs, bucket_name, index_name):
         with open(f"{bucket_id}_posting_locs.pickle", "wb") as f:
             pickle.dump(posting_locs, f)
         client = storage.Client()
         bucket = client.bucket(bucket_name)
-        blob_posting_locs = bucket.blob(f"postings_gcp/{bucket_id}_posting_locs.pickle")
+        blob_posting_locs = bucket.blob(f"postings_gcp_{index_name}/{bucket_id}_posting_locs.pickle")
         blob_posting_locs.upload_from_filename(f"{bucket_id}_posting_locs.pickle")
 
 
