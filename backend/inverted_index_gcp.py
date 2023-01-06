@@ -115,8 +115,8 @@ class InvertedIndex:
         # for each term/posting list its list of locations. The offset represents
         # the number of bytes from the beginning of the file where the posting list
         # starts.
+        self.num_of_docs = 0
         self.posting_locs = defaultdict(list)
-
         for doc_id, tokens in docs.items():
             self.add_doc(doc_id, tokens)
 
@@ -130,6 +130,7 @@ class InvertedIndex:
         for w, cnt in w2cnt.items():
             self.df[w] = self.df.get(w, 0) + 1
             self._posting_list[w].append((doc_id, cnt))
+        self.num_of_docs += 1
 
     def write_index(self, base_dir, name):
         """ Write the in-memory index to disk. Results in the file:
