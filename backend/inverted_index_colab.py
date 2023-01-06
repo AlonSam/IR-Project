@@ -94,8 +94,8 @@ class InvertedIndex:
         # for each term/posting list its list of locations. The offset represents
         # the number of bytes from the beginning of the file where the posting list
         # starts.
+        self.num_of_docs = 0
         self.posting_locs = defaultdict(list)
-        self.idf = Counter()
         for doc_id, tokens in docs.items():
             self.add_doc(doc_id, tokens)
 
