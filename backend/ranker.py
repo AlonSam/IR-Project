@@ -5,8 +5,10 @@ import numpy as np
 
 class Ranker:
     def __init__(self):
+        pass
+    
 
-    def cosine_similarity(self, document: List[str], query: List[str]):
+    def cosine_similarity(self, documents: List[List[[str]], query: List[str]):
         cosine = np.dot(document, query) / (np.linalg.norm(document, axis=1) * np.linalg.norm(query))
         return dict(enumerate(cosine))
 
