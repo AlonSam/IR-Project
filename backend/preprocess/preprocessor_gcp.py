@@ -3,9 +3,7 @@ from collections import defaultdict, Counter
 from typing import List, Tuple
 
 import numpy as np
-import pyspark
 from google.cloud import storage
-from pyspark.shell import spark
 
 from inverted_index_gcp import InvertedIndex
 from tokenizer import Tokenizer
@@ -24,8 +22,7 @@ def token2bucket_id(token):
 
 
 class PreProcessor:
-    def __init__(self, spark):
-        self.spark = spark
+    def __init__(self):
         self.client = storage.Client()
         self.stemmer = Stemmer()
         self.tokenizer = Tokenizer()
@@ -74,13 +71,6 @@ class PreProcessor:
         return w2idf
 
     @staticmethod
-    def calculate_tf_idf(postings, idf, as_dict: bool = True):
-        tf_idf = postings.map(lambda token: (token[0], [(doc[0], doc[1] * idf[token[0]]) for doc in token[1]]))
-        if as_dict is True:
-            return tf_idf.collectAsMap()
-        return tf_idf
-
-    @staticmethod
     def calculate_term_total(postings, as_dict: bool = True):
         term_total = postings.mapValues(lambda term: np.sum([x[1] for x in term]))
         if as_dict:
@@ -89,6 +79,9 @@ class PreProcessor:
 
     def calculate_dl(self, doc_text_pairs, index_type: str, as_dict: bool = True):
         dl = doc_text_pairs.map(lambda x: {x['id']: len(self.tokenizer.tokenize(x[index_type]))})
+        if as_dict is True:
+            return dl.collectAsMap()
+        return dl
 
     @staticmethod
     def partition_postings_and_write(postings, bucket_name: str, index_name: str):
@@ -136,9 +129,9 @@ class PreProcessor:
             counter = Counter(tokens)
         return [(token, (doc_id, count)) for (token, count) in counter.items()]
 
-    def get_super_posting_locs(self, bucket_name) -> defaultdict:
+    def get_super_posting_locs(self, bucket_name, index_name) -> defaultdict:
         super_posting_locs = defaultdict(list)
-        for blob in self.client.list_blobs(bucket_name, prefix='postings_gcp'):
+        for blob in self.client.list_blobs(bucket_name, prefix=f'postings_gcp_{index_name}'):
             if not blob.name.endswith("pickle"):
                 continue
             with blob.open("rb") as f:

@@ -1,4 +1,3 @@
-import pyspark
 import sys
 from collections import Counter, OrderedDict
 import itertools
@@ -37,7 +36,7 @@ class MultiFileWriter:
             pos = self._f.tell()
             remaining = BLOCK_SIZE - pos
             # if the current file is full, close and open a new one.
-            if remaining == 0:
+            if remaining <= 0:
                 self._f.close()
                 self.upload_to_gcp()
                 self._f = next(self._file_gen)
@@ -46,7 +45,6 @@ class MultiFileWriter:
             locs.append((self._f.name, pos))
             b = b[remaining:]
         return locs
-
     def close(self):
         self._f.close()
 
@@ -62,19 +60,23 @@ class MultiFileWriter:
 class MultiFileReader:
     """ Sequential binary reader of multiple files of up to BLOCK_SIZE each. """
 
-    def __init__(self):
+    def __init__(self, path):
+        self.path = path
         self._open_files = {}
 
     def read(self, locs, n_bytes):
         b = []
         for f_name, offset in locs:
             if f_name not in self._open_files:
-                self._open_files[f_name] = open(f_name, 'rb')
-            f = self._open_files[f_name]
-            f.seek(offset)
-            n_read = min(n_bytes, BLOCK_SIZE - offset)
-            b.append(f.read(n_read))
-            n_bytes -= n_read
+                try:
+                    self._open_files[f_name] = open(f'{self.path}{f_name}', 'rb')
+                    f = self._open_files[f_name]
+                    f.seek(offset)
+                    n_read = min(n_bytes, BLOCK_SIZE - offset)
+                    b.append(f.read(n_read))
+                    n_bytes -= n_read
+                except Exception as e:
+                    print(f'Could not find {f_name} due to : {e}')
         return b''.join(b)
 
     def close(self):
@@ -151,19 +153,40 @@ class InvertedIndex:
         del state['_posting_list']
         return state
 
-    def posting_lists_iter(self):
+    def posting_lists_iter(self, path):
         """ A generator that reads one posting list from disk and yields
             a (word:str, [(doc_id:int, tf:int), ...]) tuple.
         """
-        with closing(MultiFileReader()) as reader:
+        with closing(MultiFileReader(path)) as reader:
             for w, locs in self.posting_locs.items():
-                b = reader.read(locs[0], self.df[w] * TUPLE_SIZE)
+                if w in self.df.keys():
+                    b = reader.read(locs, self.df[w] * TUPLE_SIZE)
+                    posting_list = []
+                    for i in range(self.df[w]):
+                        doc_id = int.from_bytes(b[i * TUPLE_SIZE:i * TUPLE_SIZE + 4], 'big')
+
+                        tf = int.from_bytes(b[i * TUPLE_SIZE + 4:(i + 1) * TUPLE_SIZE], 'big')
+                        posting_list.append((doc_id, tf))
+                    yield w, posting_list
+
+    def get_posting_list(self, path: str, word: str):
+        """
+        This function returning the iterator working with posting list.
+
+        Parameters:
+        ----------
+        index: inverted index
+        """
+        with closing(MultiFileReader(path)) as reader:
+            if word in self.df.keys() and word in self.posting_locs.keys():
+                locs = self.posting_locs[word]
+                b = reader.read(locs, self.df[word] * TUPLE_SIZE)
                 posting_list = []
-                for i in range(self.df[w]):
+                for i in range(self.df[word]):
                     doc_id = int.from_bytes(b[i * TUPLE_SIZE:i * TUPLE_SIZE + 4], 'big')
                     tf = int.from_bytes(b[i * TUPLE_SIZE + 4:(i + 1) * TUPLE_SIZE], 'big')
                     posting_list.append((doc_id, tf))
-                yield w, posting_list
+                return posting_list
 
     @staticmethod
     def read_index(base_dir, name):
@@ -203,5 +226,15 @@ class InvertedIndex:
         bucket = client.bucket(bucket_name)
         blob_posting_locs = bucket.blob(f"postings_gcp_{index_name}/{bucket_id}_posting_locs.pickle")
         blob_posting_locs.upload_from_filename(f"{bucket_id}_posting_locs.pickle")
+
+    @staticmethod
+    def download_posting_locs(bucket_name, index_name):
+        client = storage.Client()
+        path = f'postings_gcp_{index_name}/'
+        blobs = client.list_blobs(bucket_name, prefix=path)
+        if not os.path.exists(path):
+            os.makedirs(path)
+        for b in blobs:
+            b.download_to_filename(b.name)
 
 

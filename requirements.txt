@@ -1,2 +1,6 @@
-
-
+numpy~=1.23.3
+nltk~=3.7
+pyspark~=3.2.1
+google~=3.0.0
+pandas~=1.4.4
+flask~=2.1.3
