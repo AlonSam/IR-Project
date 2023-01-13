@@ -9,15 +9,16 @@ class Evaluator:
     def __init__(self, num_of_words: int):
         self.num_of_words = num_of_words
 
-    def evaluate(self, true_rank: List[int], predicted_rank: List[int]) -> Dict[str, float]:
+    def evaluate(self, true_rank: List[int], predicted_rank: List[int], k: int = 40) -> Dict[str, float]:
         return {
-            'Map @K': self.map_at_k(true_rank, predicted_rank),
-            'Recall @K': self.recall_at_k(true_rank, predicted_rank),
-            'Precision @K': self.precision_at_k(true_rank, predicted_rank),
+            'Map @K': self.map_at_k(true_rank, predicted_rank, k),
+            'Average Precision@K': self.average_precision(true_rank, predicted_rank, k),
+            'Recall @K': self.recall_at_k(true_rank, predicted_rank, k),
+            'Precision @K': self.precision_at_k(true_rank, predicted_rank, k),
             'R Precision': self.r_precision(true_rank, predicted_rank),
-            'Reciprocal Rank @K': self.reciprocal_rank_at_k(true_rank, predicted_rank),
-            'Fallout Rate': self.fallout_rate(true_rank, predicted_rank),
-            'F Score': self.f_score(true_rank, predicted_rank)
+            'Reciprocal Rank @K': self.reciprocal_rank_at_k(true_rank, predicted_rank, k),
+            'Fallout Rate': self.fallout_rate(true_rank, predicted_rank, k),
+            'F Score': self.f_score(true_rank, predicted_rank, k)
         }
 
     @staticmethod
@@ -139,10 +140,9 @@ class Evaluator:
         f_measure = (2 * precision_at_k) / (precision_at_k + recall_at_k)
         return round(f_measure, 3)
 
-
     def map_at_k(self, true_rank: List[int], predicted_rank: List[int], k: int = 40):
         precisions = []
-        for i in range(k):
-            if true_rank[i] == predicted_rank[i]:
+        for i, doc_id in enumerate(predicted_rank[:k]):
+            if doc_id in true_rank:
                 precisions.append(self.precision_at_k(true_rank, predicted_rank, i + 1))
-        return np.mean(precisions)
+        return round(np.mean(precisions), 3) if len(precisions) > 0 else 0.0

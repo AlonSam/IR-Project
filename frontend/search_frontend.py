@@ -1,12 +1,15 @@
 from flask import Flask, request, jsonify
 
+from backend.search_engine import SearchEngine
+
+
 class MyFlaskApp(Flask):
     def run(self, host=None, port=None, debug=None, **options):
         super(MyFlaskApp, self).run(host=host, port=port, debug=debug, **options)
 
 app = MyFlaskApp(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
-
+search_engine = SearchEngine()
 
 
 @app.route("/search")
@@ -57,7 +60,7 @@ def search_body():
     if len(query) == 0:
       return jsonify(res)
     # BEGIN SOLUTION
-
+    search_engine.search_body(query)
     # END SOLUTION
     return jsonify(res)
 
@@ -65,9 +68,13 @@ def search_body():
 def search_title():
     ''' Returns ALL (not just top 100) search results that contain A QUERY WORD 
         IN THE TITLE of articles, ordered in descending order of the NUMBER OF 
-        QUERY WORDS that appear in the title. For example, a document with a 
-        title that matches two of the query words will be ranked before a 
-        document with a title that matches only one query term. 
+        DISTINCT QUERY WORDS that appear in the title. DO NOT use stemming. DO
+        USE the staff-provided tokenizer from Assignment 3 (GCP part) to do the
+        tokenization and remove stopwords. For example, a document
+        with a title that matches two distinct query words will be ranked before a
+        document with a title that matches only one distinct query word,
+        regardless of the number of times the term appeared in the title (or
+        query).
 
         Test this by navigating to the a URL like:
          http://YOUR_SERVER_DOMAIN/search_title?query=hello+world
@@ -83,7 +90,7 @@ def search_title():
     if len(query) == 0:
       return jsonify(res)
     # BEGIN SOLUTION
-
+    res = search_engine.search_title_binary_ranking(query)
     # END SOLUTION
     return jsonify(res)
 
@@ -92,9 +99,12 @@ def search_anchor():
     ''' Returns ALL (not just top 100) search results that contain A QUERY WORD 
         IN THE ANCHOR TEXT of articles, ordered in descending order of the 
         NUMBER OF QUERY WORDS that appear in anchor text linking to the page. 
-        For example, a document with a anchor text that matches two of the 
-        query words will be ranked before a document with anchor text that 
-        matches only one query term. 
+        DO NOT use stemming. DO USE the staff-provided tokenizer from Assignment
+        3 (GCP part) to do the tokenization and remove stopwords. For example,
+        a document with a anchor text that matches two distinct query words will
+        be ranked before a document with anchor text that matches only one
+        distinct query word, regardless of the number of times the term appeared
+        in the anchor text (or query).
 
         Test this by navigating to the a URL like:
          http://YOUR_SERVER_DOMAIN/search_anchor?query=hello+world
@@ -110,7 +120,7 @@ def search_anchor():
     if len(query) == 0:
       return jsonify(res)
     # BEGIN SOLUTION
-    
+    res = search_engine.search_anchor(query)
     # END SOLUTION
     return jsonify(res)
 
@@ -135,7 +145,7 @@ def get_pagerank():
     if len(wiki_ids) == 0:
       return jsonify(res)
     # BEGIN SOLUTION
-
+    res = search_engine.page_rank(wiki_ids)
     # END SOLUTION
     return jsonify(res)
 
@@ -162,7 +172,7 @@ def get_pageview():
     if len(wiki_ids) == 0:
       return jsonify(res)
     # BEGIN SOLUTION
-
+    res = search_engine.page_views(wiki_ids)
     # END SOLUTION
     return jsonify(res)
 

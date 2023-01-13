@@ -1,5 +1,5 @@
-import math
 from collections import Counter
+from typing import List
 
 import numpy as np
 
@@ -12,13 +12,13 @@ class QueryProcessor:
         self.tokenizer = Tokenizer()
         self.stemmer = Stemmer()
 
-    def process(self, query: str, stemming: bool = False):
+    def process(self, query: str, stemming: bool = False) -> List[str]:
         tokens = self.tokenizer.tokenize(query)
         if stemming is True:
-            processed_query = [self.stemmer.stem(token) for token in tokens]
+            tokens = [self.stemmer.stem(token) for token in tokens]
+        return tokens
 
-
-    def generate_query_tfidf_vector(self, query, index):
+    def generate_query_tfidf_dict(self, query: List[str], index):
         """
         Generate a vector representing the query. Each entry within this vector represents a tfidf score.
         The terms representing the query will be the unique terms in the index.
@@ -38,20 +38,13 @@ class QueryProcessor:
         -----------
         vectorized query with tfidf scores
         """
-
         epsilon = .0000001
-        total_vocab_size = len(index.term_total)
-        Q = np.zeros((total_vocab_size))
-        term_vector = list(index.term_total.keys())
+        Q = {}
         counter = Counter(query)
-        for token in np.unique(query):
+        for ind, token in enumerate(np.unique(query)):
             if token in index.term_total.keys():  # avoid terms that do not appear in the index.
                 tf = counter[token] / len(query)  # term frequency divded by the length of the query
                 df = index.df[token]
                 idf = np.log10(index.num_of_docs / (df + epsilon))  # smoothing
-                try:
-                    ind = term_vector.index(token)
-                    Q[ind] = tf * idf
-                except:
-                    pass
+                Q[token] = tf * idf
         return Q
