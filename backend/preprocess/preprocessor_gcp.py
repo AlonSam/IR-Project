@@ -70,6 +70,13 @@ class PreProcessor:
             return w2idf.collectAsMap()
         return w2idf
 
+    @staticmethod
+    def calculate_term_total(postings, as_dict: bool = True):
+        term_total = postings.mapValues(lambda term: np.sum([x[1] for x in term]))
+        if as_dict:
+            return term_total.collectAsMap()
+        return term_total
+
     def calculate_dl(self, doc_text_pairs, index_type: str, as_dict: bool = True):
         dl = doc_text_pairs.map(lambda x: {x['id']: len(self.tokenizer.tokenize(x[index_type]))})
         if as_dict is True:
