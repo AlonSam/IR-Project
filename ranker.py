@@ -47,9 +47,14 @@ class Ranker:
         relevant_docs = defaultdict(int)
         path = f'postings_gcp_{index.name}/'
         for word in query:
-            pls = index.get_posting_list(path, word)
-            if pls is None:
-                return []
+            if word in index.posting_lists.keys():
+                pls = index.posting_lists[word]
+            else:
+                bins = [loc[0] for loc in index.posting_locs[word]]
+                index.download_posting_locs_for_query(path, bins)
+                pls = index.get_posting_list(path, word)
+                if pls is None:
+                    return []
             for doc_id, _ in pls:
                 relevant_docs[doc_id] += 1
         ranks = sorted(list(relevant_docs.items()), key=lambda x: x[1], reverse=True)
@@ -59,13 +64,19 @@ class Ranker:
         ranks = []
         for wiki_id in wiki_ids:
             row = df[df['id'] == wiki_id].to_dict('records')
-            ranks.append(row[0]['page_rank'])
+            try:
+                ranks.append(row[0]['page_rank'])
+            except:
+                ranks.append(0)
         return ranks
 
     def page_views(self, page_views_dict: Dict[int, int], wiki_ids: List[int]) -> List[int]:
         views = []
         for wiki_id in wiki_ids:
-            views.append(page_views_dict[wiki_id])
+            try:
+                views.append(page_views_dict[wiki_id])
+            except:
+                views.append(0)
         return views
 
     def get_candidate_documents_and_scores(self, query: List[str], posting_lists, dl_dict, idf_dict):
@@ -174,13 +185,20 @@ class Ranker:
         return candidates
 
     @staticmethod
-    def get_posting_lists(index, tokens: List[str]):
+    def get_posting_lists(index: InvertedIndex, tokens: List[str]):
         posting_lists = {}
         path = f'postings_gcp_{index.name}/'
         for token in tokens:
-            posting_lists[token] = index.get_posting_list(path, token)
+            if token in index.posting_lists.keys():
+                posting_lists[token] = index.posting_lists[token]
+            else:
+                try:
+                    bins = [loc[0] for loc in index.posting_locs[token]]
+                    index.download_posting_locs_for_query(path, bins)
+                    posting_lists[token] = index.get_posting_list(path, token)
+                except:
+                    continue
         return posting_lists
-
 
     def merge_results(self, scores1,  scores2, w1=0.5, w2=0.5, N=20):
         """
@@ -223,23 +241,59 @@ class Ranker:
                                     w_page_rank: float = 0.25,
                                     w_page_views: float = 0.25,
                                     N: int = 10):
-        title_scores_std = self._min_max_scale(title_scores)
-        page_rank_scores_std = self._min_max_scale(page_rank_scores)
-        page_views_scores_std = self._min_max_scale(page_views_scores)
-        new_score = [(doc_id, w_title * score) for (doc_id, score) in title_scores_std]
-        new_score += [(doc_id, w_page_rank * score) for (doc_id, score) in page_rank_scores_std]
-        new_score += [(doc_id, w_page_views * score) for (doc_id, score) in page_views_scores_std]
-        g_list = [list(g) for k, g in groupby(sorted(new_score), lambda x: x[0])]
-        merged_scores = []
-        for i, j in [zip(*i) for i in g_list]:
-            if len(j) == 3:
-                merged_scores.append((i[0], j[0] + j[1]) + j[2])
-            elif len(j) == 2:
-                merged_scores.append((i[0], j[0] + j[1]))
-            else:
-                merged_scores.append((i[0], j[0]))
-        return sorted(merged_scores, key=lambda x: x[1], reverse=True)[:N]
+        try:
+            title_scores_std = self._min_max_scale(title_scores)
+            page_rank_scores_std = self._min_max_scale(page_rank_scores)
+            page_views_scores_std = self._min_max_scale(page_views_scores)
+            new_score = [(doc_id, w_title * score) for (doc_id, score) in title_scores_std]
+            new_score += [(doc_id, w_page_rank * score) for (doc_id, score) in page_rank_scores_std]
+            new_score += [(doc_id, w_page_views * score) for (doc_id, score) in page_views_scores_std]
+            g_list = [list(g) for k, g in groupby(sorted(new_score), lambda x: x[0])]
+            merged_scores = []
+            for i, j in [zip(*i) for i in g_list]:
+                if len(j) == 3:
+                    merged_scores.append((i[0], j[0] + j[1] + j[2]))
+                elif len(j) == 2:
+                    merged_scores.append((i[0], j[0] + j[1]))
+                else:
+                    merged_scores.append((i[0], j[0]))
+            return sorted(merged_scores, key=lambda x: x[1], reverse=True)[:N]
+        except:
+            return []
 
+    def merge_all(self,
+                                    body_scores: List[Tuple[int, float]],
+                                    title_scores: List[Tuple[int, float]],
+                                    page_rank_scores: List[int],
+                                    page_views_scores: List[int],
+                                    w_body: float = 0.25,
+                                    w_title: float = 0.25,
+                                    w_page_rank: float = 0.25,
+                                    w_page_views: float = 0.25,
+                                    N: int = 10):
+        try:
+            body_scores_std = self._min_max_scale(body_scores)
+            title_scores_std = self._min_max_scale(title_scores)
+            page_rank_scores_std = self._min_max_scale(page_rank_scores)
+            page_views_scores_std = self._min_max_scale(page_views_scores)
+            new_score = [(doc_id, w_body * score) for (doc_id, score) in body_scores_std]
+            new_score += [(doc_id, w_title * score) for (doc_id, score) in title_scores_std]
+            new_score += [(doc_id, w_page_rank * score) for (doc_id, score) in page_rank_scores_std]
+            new_score += [(doc_id, w_page_views * score) for (doc_id, score) in page_views_scores_std]
+            g_list = [list(g) for k, g in groupby(sorted(new_score), lambda x: x[0])]
+            merged_scores = []
+            for i, j in [zip(*i) for i in g_list]:
+                if len(j) == 4:
+                    merged_scores.append((i[0], j[0] + j[1] + j[2] + j[3]))
+                elif len(j) == 3:
+                    merged_scores.append((i[0], j[0] + j[1] + j[2]))
+                elif len(j) == 2:
+                    merged_scores.append((i[0], j[0] + j[1]))
+                else:
+                    merged_scores.append((i[0], j[0]))
+            return sorted(merged_scores, key=lambda x: x[1], reverse=True)[:N]
+        except:
+            return []
 
     @staticmethod
     def _min_max_scale(doc_id_scores):

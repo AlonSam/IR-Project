@@ -22,6 +22,12 @@ class QueryProcessor:
             tokens += self._get_similar_words(tokens, similar_words, similarity)
         return tokens
 
+    def re_process(self, query: str, stemming: bool = False):
+        tokens = self.tokenizer.re_tokenize(query)
+        if stemming is True:
+            tokens = [self.stemmer.stem(token) for token in tokens]
+        return tokens
+
     def generate_query_tfidf_dict(self, query: List[str], index):
         """
         Generate a vector representing the query. Each entry within this vector represents a tfidf score.

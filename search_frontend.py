@@ -7,6 +7,7 @@ class MyFlaskApp(Flask):
     def run(self, host=None, port=None, debug=None, **options):
         super(MyFlaskApp, self).run(host=host, port=port, debug=debug, **options)
 
+
 app = MyFlaskApp(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 search_engine = SearchEngine()
@@ -33,11 +34,12 @@ def search():
     res = []
     query = request.args.get('query', '')
     if len(query) == 0:
-      return jsonify(res)
+        return jsonify(res)
     # BEGIN SOLUTION
-
+    res = search_engine.ultimate_search(query, stemming=True, add_anchor=True)
     # END SOLUTION
     return jsonify(res)
+
 
 @app.route("/search_body")
 def search_body():
@@ -58,9 +60,9 @@ def search_body():
     res = []
     query = request.args.get('query', '')
     if len(query) == 0:
-      return jsonify(res)
+        return jsonify(res)
     # BEGIN SOLUTION
-    search_engine.search_body(query, )
+    res = search_engine.search_body(query)
     # END SOLUTION
     return jsonify(res)
 
@@ -89,7 +91,7 @@ def search_title():
     res = []
     query = request.args.get('query', '')
     if len(query) == 0:
-      return jsonify(res)
+        return jsonify(res)
     # BEGIN SOLUTION
     res = search_engine.search_title(query)
     # END SOLUTION
@@ -120,7 +122,7 @@ def search_anchor():
     res = []
     query = request.args.get('query', '')
     if len(query) == 0:
-      return jsonify(res)
+        return jsonify(res)
     # BEGIN SOLUTION
     res = search_engine.search_anchor(query)
     # END SOLUTION
@@ -146,11 +148,12 @@ def get_pagerank():
     res = []
     wiki_ids = request.get_json()
     if len(wiki_ids) == 0:
-      return jsonify(res)
+        return jsonify(res)
     # BEGIN SOLUTION
     res = search_engine.page_rank(wiki_ids)
     # END SOLUTION
     return jsonify(res)
+
 
 @app.route("/get_pageview", methods=['POST'])
 def get_pageview():
@@ -173,13 +176,43 @@ def get_pageview():
     res = []
     wiki_ids = request.get_json()
     if len(wiki_ids) == 0:
-      return jsonify(res)
+        return jsonify(res)
     # BEGIN SOLUTION
     res = search_engine.page_views(wiki_ids)
     # END SOLUTION
     return jsonify(res)
 
 
+@app.route("/ultimate_search")
+def ultimate_search():
+    res = []
+    query = request.args.get('query', '')
+    if len(query) == 0:
+        return jsonify(res)
+    try:
+        config = {
+                'n': int(request.args.get('n', '')),
+                'body_k': float(request.args.get('body_k', '')),
+                'body_b': float(request.args.get('body_b', '')),
+                'body_w': float(request.args.get('body_w', '')),
+                'title_k': float(request.args.get('title_k', '')),
+                'title_b': float(request.args.get('title_b', '')),
+                'title_w': float(request.args.get('title_w', '')),
+                'page_rank_w': float(request.args.get('page_rank_w', '')),
+                'page_views_w': float(request.args.get('page_views_w', '')),
+                'add_anchor': bool(request.args.get('add_anchor', '')),
+                'stemming': bool(request.args.get('stemming', '')),
+                'expand': bool(request.args.get('expand', ''))
+        }
+    except Exception as e:
+        print('failed due to: ' + e)
+    print(
+        f"starting query: n:{config['n']} bw:{config['body_w']}, tw:{config['title_w']}, prw:{config['page_rank_w']}, pvw:{config['page_views_w']}")
+    res = search_engine.ultimate_search(query, config)
+    return jsonify(res)
+
+
 if __name__ == '__main__':
     # run the Flask RESTful API, make the server publicly available (host='0.0.0.0') on port 8080
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    # app.run(host='0.0.0.0', port=8080, debug=True)
+    app.run()

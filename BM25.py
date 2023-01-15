@@ -69,6 +69,7 @@ class BM25:
         """
         idf = self.calc_idf(query)
         posting_lists = self.ranker.get_posting_lists(self.index, query)
+        self.index.posting_lists.update(posting_lists)
         if add_anchor is True:
             anchor_posting_lists = self.ranker.get_posting_lists(self.anchor_index, query)
             candidates = self.ranker.get_candidate_documents_for_term(query, posting_lists, anchor_posting_lists)

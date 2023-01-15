@@ -2,6 +2,8 @@ import sys
 from collections import Counter, OrderedDict
 import itertools
 from itertools import islice, count, groupby
+from typing import List
+
 import pandas as pd
 import os
 import re
@@ -13,7 +15,9 @@ from google.cloud import storage
 from collections import defaultdict
 from contextlib import closing
 
+
 BLOCK_SIZE = 1999998
+BUCKET_NAME = 'ofek_alon_project'
 
 
 class MultiFileWriter:
@@ -238,5 +242,17 @@ class InvertedIndex:
         for b in blobs:
             if len(b.name.split('/')[1]) > 0:
                 b.download_to_filename(b.name)
+
+    def download_posting_locs_for_query(self, path: str, bins: List[str]):
+        client = storage.Client()
+        bucket = client.bucket(BUCKET_NAME)
+        if not os.path.exists(path):
+            os.makedirs(path)
+        for bin in bins:
+            try:
+                b = bucket.get_blob(path + bin)
+                b.download_to_filename(path + bin)
+            except Exception as e:
+                print(f'failed to download posting locs for query due to: {e}')
 
 
