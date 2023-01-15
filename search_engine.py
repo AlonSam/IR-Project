@@ -120,7 +120,7 @@ class SearchEngine:
 
     def search_title_BM25(self, query: str, k1: float = 2.0, b: float = 0.75, stemming: bool = False, N: int = 100,
                           expand: bool = False, similar_words: int = 6, similarity: float = 0.7,
-                          add_anchor: bool = False) -> List[Tuple[int, str]]:
+                          add_anchor: bool = False) -> List[Tuple[int, float]]:
         """
         Given a query, uses BM25 on the title of documents to retrieve relevant documents.
         :param b: float, default: 0.75
@@ -172,6 +172,15 @@ class SearchEngine:
         index = getattr(self, f'{index_name}_index')
         ranks = self.ranker.binary_ranking(processed_query, index)
         return [(doc_id, self.id2title_dict[doc_id]) for doc_id in ranks]
+
+    def ultimate_search(self, query: str, stemming: bool = False, expand: bool = False, N: int = 10,
+                        add_anchor: bool = False):
+        title_scores = self.search_title_BM25(query, stemming=stemming, expand=expand, N=N, add_anchor=add_anchor)
+        wiki_ids = [doc_id for (doc_id, score) in title_scores]
+        page_rank_scores = [(wiki_id, score) for (wiki_id, score) in zip(wiki_ids, self.page_rank(wiki_ids))]
+        page_views_scores = [(wiki_id, score) for (wiki_id, score) in zip(wiki_ids, self.page_views(wiki_ids))]
+        merged_scores = self.ranker.merge_title_page_rank_views(title_scores, page_rank_scores, page_views_scores, N=N)
+        return [(doc_id, self.id2title_dict[doc_id]) for doc_id in merged_scores]
 
     def search_anchor(self, query: str) -> List[Tuple[int, str]]:
         """
