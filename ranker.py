@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from numpy.linalg import norm
 from itertools import groupby
-from backend.inverted_index_gcp import InvertedIndex
+from inverted_index_gcp import InvertedIndex
 from sklearn.preprocessing import MinMaxScaler
 
 

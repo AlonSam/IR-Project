@@ -1,8 +1,8 @@
 from collections import Counter
 from typing import List
 import numpy as np
-from backend.preprocess.stemmer import Stemmer
-from backend.preprocess.tokenizer import Tokenizer
+from stemmer import Stemmer
+from tokenizer import Tokenizer
 import gensim.models
 import gensim.downloader as api
 

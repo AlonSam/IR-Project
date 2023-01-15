@@ -5,7 +5,7 @@ import numpy as np
 from google.cloud import storage
 from inverted_index_colab import InvertedIndex
 
-from backend.preprocess.stemmer import Stemmer
+from stemmer import Stemmer
 from tokenizer import Tokenizer
 import hashlib
 import pyspark as spark

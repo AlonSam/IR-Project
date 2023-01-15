@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 
-from backend.search_engine import SearchEngine
+from search_engine import SearchEngine
 
 
 class MyFlaskApp(Flask):
@@ -60,9 +60,10 @@ def search_body():
     if len(query) == 0:
       return jsonify(res)
     # BEGIN SOLUTION
-    search_engine.search_body(query)
+    search_engine.search_body(query, )
     # END SOLUTION
     return jsonify(res)
+
 
 @app.route("/search_title")
 def search_title():
@@ -90,9 +91,10 @@ def search_title():
     if len(query) == 0:
       return jsonify(res)
     # BEGIN SOLUTION
-    res = search_engine.search_title_binary_ranking(query)
+    res = search_engine.search_title(query)
     # END SOLUTION
     return jsonify(res)
+
 
 @app.route("/search_anchor")
 def search_anchor():
@@ -123,6 +125,7 @@ def search_anchor():
     res = search_engine.search_anchor(query)
     # END SOLUTION
     return jsonify(res)
+
 
 @app.route("/get_pagerank", methods=['POST'])
 def get_pagerank():

@@ -3,11 +3,11 @@ from typing import Iterator, List, Tuple, Any
 import numpy as np
 import pandas as pd
 
-from backend.BM25 import BM25
-from backend.inverted_index_gcp import InvertedIndex
-from backend.pickle_handler import PickleHandler
-from backend.query_processor import QueryProcessor
-from backend.ranker import Ranker
+from BM25 import BM25
+from inverted_index_gcp import InvertedIndex
+from pickle_handler import PickleHandler
+from query_processor import QueryProcessor
+from ranker import Ranker
 
 INDICES = ['text', 'text_with_stemming', 'title', 'title_with_stemming', 'anchor_text']
 PICKLE_FILES = ['idf_text', 'idf_text_with_stemming', 'page_views', 'dl_text', 'dl_text_with_stemming', 'dl_title',
@@ -51,13 +51,12 @@ class SearchEngine:
         element is a tuple (wiki_id, title).
         """
         if type == 'tfidf':
-            ranks = self.search_body_tfidf(query, stemming=stemming, N=N, expand=expand, similar_words=similar_words, similarity=similarity)
+            ranks = self.search_body_tfidf(query, stemming=stemming, N=N)
         else:
             ranks = self.search_body_BM25(query, stemming=stemming, N=N, expand=expand, similar_words=similar_words, similarity=similarity)
         return [(self.id2title_dict[doc_id], doc_id) for (doc_id, score) in ranks]
 
-    def search_body_tfidf(self, query: str, stemming: bool = False, N: int = 100,
-                          expand: bool = False, similar_words: int = 6, similarity: float = 0.7) -> List[Tuple[int, float]]:
+    def search_body_tfidf(self, query: str, stemming: bool = False, N: int = 100) -> List[Tuple[int, float]]:
         """
         Given a query, uses TFIDF on the body of documents to retrieve relevant documents.
         :param query: str
@@ -67,7 +66,7 @@ class SearchEngine:
         list of up to 100 search results, ordered from best to worst where each
         element is a tuple (wiki_id, score).
         """
-        processed_query = self.query_processor.process(query, stemming, expand, similar_words=similar_words, similarity=similarity)
+        processed_query = self.query_processor.process(query, stemming)
         index_name = 'text_with_stemming' if stemming is True else 'text'
         index = getattr(self, f'{index_name}_index')
         dl_dict = getattr(self, f'dl_{index_name}_dict')
@@ -153,7 +152,7 @@ class SearchEngine:
     def search_body_tfidf_and_title_BM25(self, query: str, stemming: bool = False, N: int = 100, w1: float = 0.5,
                                          w2: float = 0.5, expand: bool = False, similar_words: int = 6, similarity: float = 0.7,
                                          add_anchor: bool = False) -> List[Tuple[int, str]]:
-        body_scores = self.search_body_tfidf(query, stemming=stemming, N=N, expand=expand, similar_words=similar_words, similarity=similarity, add_anchor=add_anchor)
+        body_scores = self.search_body_tfidf(query, stemming=stemming, N=N)
         title_scores = self.search_title_BM25(query, stemming=stemming, N=N, expand=expand, similar_words=similar_words, similarity=similarity, add_anchor=add_anchor)
         if len(body_scores) == 0 and len(title_scores) == 0:
             return []
