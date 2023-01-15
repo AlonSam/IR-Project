@@ -6,7 +6,7 @@ METRICS = ['Map @K', 'Recall @K', 'Precision @K', 'R Precision', 'Reciprocal Ran
 
 
 class Evaluator:
-    def __init__(self, num_of_words: int):
+    def __init__(self, num_of_words: int = 0):
         self.num_of_words = num_of_words
 
     def evaluate(self, true_rank: List[int], predicted_rank: List[int], k: int = 40) -> Dict[str, float]:

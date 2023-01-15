@@ -30,7 +30,6 @@ class PreProcessor:
 
     def read_files(self, path: str, index_type: str):
         parquet_file = self.spark.read.parquet(path)
-        # num_of_docs = parquet_file.count()
         num_of_docs = 1000
         return parquet_file.limit(1000).select(index_type, "id").rdd, num_of_docs
 
@@ -128,7 +127,7 @@ class PreProcessor:
             A list of (token, (doc_id, tf)) pairs
             for example: [("Anarchism", (12, 5)), ...]
         '''
-        tokens = self.tokenizer.tokenize(text)
+        tokens = self.tokenizer.re_tokenize(text)
         if stemming:
             counter = Counter([self.stemmer.stem(token) for token in tokens])
         else:

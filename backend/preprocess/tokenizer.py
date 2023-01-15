@@ -18,8 +18,8 @@ class Tokenizer:
 
     def tokenize(self, text: str) -> List[str]:
         stopwords = self._get_stopwords()
-        tokens = word_tokenize(text)
-        return [token for token in tokens if token not in stopwords]
+        tokens = word_tokenize(text.lower())
+        return [token for token in tokens if token not in stopwords and token.isalpha()]
 
     def re_tokenize(self, text: str) -> List[str]:
         stopwords = self._get_stopwords()

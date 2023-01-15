@@ -187,6 +187,7 @@ class InvertedIndex:
                     tf = int.from_bytes(b[i * TUPLE_SIZE + 4:(i + 1) * TUPLE_SIZE], 'big')
                     posting_list.append((doc_id, tf))
                 return posting_list
+        return []
 
     @staticmethod
     def read_index(base_dir, name):
@@ -235,6 +236,7 @@ class InvertedIndex:
         if not os.path.exists(path):
             os.makedirs(path)
         for b in blobs:
-            b.download_to_filename(b.name)
+            if len(b.name.split('/')[1]) > 0:
+                b.download_to_filename(b.name)
 
 

@@ -1,21 +1,25 @@
 from collections import Counter
 from typing import List
-
 import numpy as np
-
 from backend.preprocess.stemmer import Stemmer
 from backend.preprocess.tokenizer import Tokenizer
+import gensim.models
+import gensim.downloader as api
 
 
 class QueryProcessor:
     def __init__(self):
         self.tokenizer = Tokenizer()
         self.stemmer = Stemmer()
+        self.word2vec_model = api.load("glove-wiki-gigaword-300")
 
-    def process(self, query: str, stemming: bool = False) -> List[str]:
+    def process(self, query: str, stemming: bool = False, expand: bool = False,
+                similar_words: int = 6, similarity: float = 0.7) -> List[str]:
         tokens = self.tokenizer.tokenize(query)
         if stemming is True:
             tokens = [self.stemmer.stem(token) for token in tokens]
+        if expand is True:
+            tokens += self._get_similar_words(tokens, similar_words, similarity)
         return tokens
 
     def generate_query_tfidf_dict(self, query: List[str], index):
@@ -48,3 +52,19 @@ class QueryProcessor:
                 idf = np.log10(index.num_of_docs / (df + epsilon))  # smoothing
                 Q[token] = tf * idf
         return Q
+
+    def _get_similar_words(self, query: List[str], similar_words: int = 6, min_similarity: float = 0.7):
+        # global model_glove_twitter
+        n_most_similar = []
+        for token in query:
+            try:
+                n_most_similar += self.word2vec_model.most_similar(positive=[token], topn=similar_words)
+            except:
+                continue
+        res = []
+        for word, similarity in n_most_similar:
+            if similarity > min_similarity:
+                tokens = self.tokenizer.tokenize(word)
+                if len(tokens) > 0:
+                    res.append(tokens[0])
+        return res

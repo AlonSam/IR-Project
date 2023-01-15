@@ -122,7 +122,7 @@ class PreProcessor:
             A list of (token, (doc_id, tf)) pairs
             for example: [("Anarchism", (12, 5)), ...]
         '''
-        tokens = self.tokenizer.tokenize(text)
+        tokens = self.tokenizer.re_tokenize(text)
         if stemming:
             counter = Counter([self.stemmer.stem(token) for token in tokens])
         else:
