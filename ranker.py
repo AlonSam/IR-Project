@@ -1,10 +1,10 @@
 from collections import defaultdict
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import numpy as np
 import pandas as pd
 from numpy.linalg import norm
 from itertools import groupby
-from backend.inverted_index_gcp import InvertedIndex
+from inverted_index_gcp import InvertedIndex
 from sklearn.preprocessing import MinMaxScaler
 
 
@@ -214,6 +214,32 @@ class Ranker:
             [(i[0], j[0] + j[1]) if len(j) > 1 else (i[0], j[0]) for i, j in [zip(*i) for i in g_list]],
             key=lambda x: x[1], reverse=True)[:N]
         return merged_scores
+
+    def merge_title_page_rank_views(self,
+                                    title_scores: List[Tuple[int, float]],
+                                    page_rank_scores: List[int],
+                                    page_views_scores: List[int],
+                                    w_title: float = 0.5,
+                                    w_page_rank: float = 0.25,
+                                    w_page_views: float = 0.25,
+                                    N: int = 10):
+        title_scores_std = self._min_max_scale(title_scores)
+        page_rank_scores_std = self._min_max_scale(page_rank_scores)
+        page_views_scores_std = self._min_max_scale(page_views_scores)
+        new_score = [(doc_id, w_title * score) for (doc_id, score) in title_scores_std]
+        new_score += [(doc_id, w_page_rank * score) for (doc_id, score) in page_rank_scores_std]
+        new_score += [(doc_id, w_page_views * score) for (doc_id, score) in page_views_scores_std]
+        g_list = [list(g) for k, g in groupby(sorted(new_score), lambda x: x[0])]
+        merged_scores = []
+        for i, j in [zip(*i) for i in g_list]:
+            if len(j) == 3:
+                merged_scores.append((i[0], j[0] + j[1]) + j[2])
+            elif len(j) == 2:
+                merged_scores.append((i[0], j[0] + j[1]))
+            else:
+                merged_scores.append((i[0], j[0]))
+        return sorted(merged_scores, key=lambda x: x[1], reverse=True)[:N]
+
 
     @staticmethod
     def _min_max_scale(doc_id_scores):

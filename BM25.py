@@ -4,7 +4,7 @@ from typing import List
 
 import numpy as np
 
-from backend.ranker import Ranker
+from ranker import Ranker
 
 
 class BM25:

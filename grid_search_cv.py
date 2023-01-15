@@ -5,7 +5,7 @@ import json
 import numpy as np
 from sklearn.model_selection import ShuffleSplit
 
-from backend.evaluator import Evaluator
+from evaluator import Evaluator
 
 file_name = 'new_train.json'
 
