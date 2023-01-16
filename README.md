@@ -61,5 +61,17 @@ allows to interact with pickle files, as well as Google Cloud Storage (GCS) buck
 * exists - Checks if a file exists at the specified path.
 * get_page_rank - Downloads a csv.gz file containing page rank values, reads it, and returns it as a pandas dataframe.
 
+In order to query our search engine, please use this path:
+`http://34.28.7.246:8080/`
 
-### Other indices modules - after loading pickle files of indices
+For example:
+import requests
+
+requests.get('http://34.28.7.246:8080' + '/search', {'query': q}, timeout=35)
+
+In order to query our ultimate search - use 'search' suffix.
+In order to query our body search - use 'search_body' suffix.
+In order to query our title search - use 'search_title' suffix.
+In order to query our anchor search - use 'search_anchor' suffix.
+In order to query our page rank search - use 'get_pagerank' suffix.
+In order to query our page rank search - use 'get_pageview' suffix.
