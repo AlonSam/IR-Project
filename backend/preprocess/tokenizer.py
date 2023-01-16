@@ -16,7 +16,7 @@ class Tokenizer:
         corpus_stopwords = ["category", "references", "also", "external", "links",
                             "may", "first", "see", "history", "people", "one", "two",
                             "part", "thumb", "including", "second", "following",
-                            "many", "however", "would", "became"]  # TODO
+                            "many", "however", "would", "became"]
         return self.nltk_stopwords.union(corpus_stopwords)
 
     def tokenize(self, text: str) -> List[str]:

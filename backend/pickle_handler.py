@@ -1,10 +1,8 @@
 import gzip
 import os
 import pickle as pkl
-
 import pandas as pd
 from google.cloud import storage
-
 from inverted_index_gcp import InvertedIndex
 
 BUCKET_NAME = "ofek_alon_project"
@@ -20,7 +18,7 @@ class PickleHandler:
         blob.download_to_filename(destination_path)
         print(f'downloaded {source_path} to {destination_path}')
 
-    def get_index(self, index_name: str):
+    def get_index(self, index_name: str) -> InvertedIndex:
         source_path = f'postings_gcp_{index_name}/index.pkl'
         destination_path = f'{index_name}.pkl'
         if not self.exists(destination_path):
@@ -28,12 +26,12 @@ class PickleHandler:
         return InvertedIndex().read_index(base_dir='.', name=index_name)
 
     @staticmethod
-    def write_pickle_file(path: str, file) -> None:
+    def write_pickle_file(path: str, file: str) -> None:
         with open(path, 'wb') as f:
             pkl.dump(file, f)
 
     @staticmethod
-    def read_pickle_file(path: str):
+    def read_pickle_file(path: str) -> None:
         with open(path, 'rb') as f:
             file = pkl.loads(f.read())
         return file
@@ -44,10 +42,10 @@ class PickleHandler:
         return self.read_pickle_file(file_name)
 
     @staticmethod
-    def exists(file_name: str):
+    def exists(file_name: str) -> bool:
         return os.path.exists(file_name)
 
-    def get_page_rank(self):
+    def get_page_rank(self) -> pd.DataFrame:
         file_name = 'page_rank.csv.gz'
         if not self.exists(file_name):
             self.download_from_gcp(file_name, file_name)

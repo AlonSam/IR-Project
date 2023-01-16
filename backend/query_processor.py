@@ -1,9 +1,8 @@
 from collections import Counter
-from typing import List
+from typing import List, Dict
 import numpy as np
-from stemmer import Stemmer
-from tokenizer import Tokenizer
-import gensim.models
+from preprocess.stemmer import Stemmer
+from preprocess.tokenizer import Tokenizer
 import gensim.downloader as api
 
 
@@ -13,8 +12,11 @@ class QueryProcessor:
         self.stemmer = Stemmer()
         self.word2vec_model = api.load("glove-wiki-gigaword-300")
 
-    def process(self, query: str, stemming: bool = False, expand: bool = False,
-                similar_words: int = 6, similarity: float = 0.7) -> List[str]:
+    def process(self, query: str,
+                stemming: bool = False,
+                expand: bool = False,
+                similar_words: int = 6,
+                similarity: float = 0.7) -> List[str]:
         tokens = self.tokenizer.tokenize(query)
         if stemming is True:
             tokens = [self.stemmer.stem(token) for token in tokens]
@@ -22,13 +24,15 @@ class QueryProcessor:
             tokens += self._get_similar_words(tokens, similar_words, similarity)
         return tokens
 
-    def re_process(self, query: str, stemming: bool = False):
+    def re_process(self,
+                   query: str,
+                   stemming: bool = False) -> List[str]:
         tokens = self.tokenizer.re_tokenize(query)
         if stemming is True:
             tokens = [self.stemmer.stem(token) for token in tokens]
         return tokens
 
-    def generate_query_tfidf_dict(self, query: List[str], index):
+    def generate_query_tfidf_dict(self, query: List[str], index) -> Dict[str, float]:
         """
         Generate a vector representing the query. Each entry within this vector represents a tfidf score.
         The terms representing the query will be the unique terms in the index.
@@ -59,8 +63,10 @@ class QueryProcessor:
                 Q[token] = tf * idf
         return Q
 
-    def _get_similar_words(self, query: List[str], similar_words: int = 6, min_similarity: float = 0.7):
-        # global model_glove_twitter
+    def _get_similar_words(self,
+                           query: List[str],
+                           similar_words: int = 6,
+                           min_similarity: float = 0.7) -> List[str]:
         n_most_similar = []
         for token in query:
             try:

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from numpy.linalg import norm
 from itertools import groupby
-from inverted_index_gcp import InvertedIndex
+from backend.inverted_index_gcp import InvertedIndex
 from sklearn.preprocessing import MinMaxScaler
 
 
@@ -13,7 +13,14 @@ class Ranker:
         pass
 
     @staticmethod
-    def cosine_similarity(D, Q, docs_norm):
+    def cosine_similarity(D: Dict[int, Dict[str, float]], Q: Dict[str, float], docs_norm: Dict[int, int]) -> float:
+        """
+        Calculates the cosine similarity between documents and a query
+        :param D: dictionary that maps each document to a dictionary that maps each term to its tf-idf value in the document.
+        :param Q: dictionary that maps each term to its tf-idf value in the query.
+        :param docs_norm: dictionary that maps each document to its norm.
+        :return: dictionary that maps each document to its cosine similarity sore.
+        """
         query_norm = norm(list(Q.values()))
         cosine = defaultdict(int)
         for doc_id, term_dict in D.items():
@@ -24,26 +31,29 @@ class Ranker:
         return cosine
 
     @staticmethod
-    def top_N_documents(cosine_dict, N=100):
+    def top_N_documents(cosine_dict: Dict[int, float], N: int = 100):
         """
-        This function sort and filter the top N docuemnts (by score) for each query.
+        This function sort and filter the top N documents (by score) for each query.
 
         Parameters
         ----------
-        df: DataFrame (queries as rows, documents as columns)
+        cosine_dict: Dictionary (doc_ids as keys, cosine similary as values)
         N: Integer (how many document to retrieve for each query)
 
         Returns:
         ----------
-        top_N: dictionary is the following stracture:
-              key - query id.
-              value - sorted (according to score) list of pairs lengh of N. Eac pair within the list provide the following information (doc id, score)
+        top_N: dictionary is the following structure:
+              key - doc id.
+              value - sorted (according to score) list of pairs length of N. Each pair within the list provide the following information (doc id, score)
         """
         return sorted([(doc_id, scores) for (doc_id, scores) in cosine_dict.items()], key=lambda x: x[1],
                                reverse=True)[:N]
 
     @staticmethod
-    def binary_ranking(query: List[str], index: InvertedIndex):
+    def binary_ranking(query: List[str], index: InvertedIndex) -> List[int]:
+        """
+        Returns a list of document ids sorted by their binary ranking score, for a given query.
+        """
         relevant_docs = defaultdict(int)
         path = f'postings_gcp_{index.name}/'
         for word in query:
@@ -61,6 +71,9 @@ class Ranker:
         return [doc[0] for doc in ranks]
 
     def page_rank(self, df: pd.DataFrame, wiki_ids: List[int]) -> List[float]:
+        """
+        Returns the page rank of the given wiki_ids.
+        """
         ranks = []
         for wiki_id in wiki_ids:
             row = df[df['id'] == wiki_id].to_dict('records')
@@ -71,6 +84,9 @@ class Ranker:
         return ranks
 
     def page_views(self, page_views_dict: Dict[int, int], wiki_ids: List[int]) -> List[int]:
+        """
+        Returns the number of page views of the given wiki_ids.
+        """
         views = []
         for wiki_id in wiki_ids:
             try:
@@ -79,7 +95,8 @@ class Ranker:
                 views.append(0)
         return views
 
-    def get_candidate_documents_and_scores(self, query: List[str], posting_lists, dl_dict, idf_dict):
+    @staticmethod
+    def get_candidate_documents_and_scores(query: List[str], posting_lists, dl_dict, idf_dict):
         """
         Generate a dictionary representing a pool of candidate documents for a given query. This function will go through every token in query_to_search
         and fetch the corresponding information (e.g., term frequency, document frequency, etc.') needed to calculate TF-IDF from the posting list.
@@ -142,7 +159,8 @@ class Ranker:
             D[doc_id][term] = tfidf
         return D
 
-    def get_candidate_documents(self, query: List[str], posting_lists):
+    @staticmethod
+    def get_candidate_documents(query: List[str], posting_lists):
         """
         Generate a dictionary representing a pool of candidate documents for a given query. This function will go through every token in query_to_search
         and fetch the corresponding information (e.g., term frequency, document frequency, etc.') needed to calculate TF-IDF from the posting list.
@@ -171,13 +189,16 @@ class Ranker:
                 candidates += [doc_id for (doc_id, tf) in posting_lists[term]]
         return np.unique(candidates)
 
-    def get_candidate_documents_for_term(self, query: List[str], posting_lists, anchor_posting_lists={}, add_anchor: bool = False):
+    @staticmethod
+    def get_candidate_documents_for_term(query: List[str], posting_lists, anchor_posting_lists={}, add_anchor: bool = False):
+        """
+        Returns a list of document ids that are candidates for a given query.
+        """
         candidates = {}
         for term in np.unique(query):
             if term in posting_lists.keys():
                 try:
                     candidates[term] = {doc_id: tf for (doc_id, tf) in posting_lists[term] if tf > 0}
-                        # dict(posting_lists[term])
                     if add_anchor is True and term in anchor_posting_lists.keys():
                         candidates[term].update({doc_id: tf for (doc_id, tf) in anchor_posting_lists[term] if doc_id not in candidates[term].keys()})
                 except:
@@ -186,6 +207,9 @@ class Ranker:
 
     @staticmethod
     def get_posting_lists(index: InvertedIndex, tokens: List[str]):
+        """
+        Given an index and a list of tokens, returns the posting lists of the tokens.
+        """
         posting_lists = {}
         path = f'postings_gcp_{index.name}/'
         for token in tokens:
@@ -202,7 +226,7 @@ class Ranker:
 
     def merge_results(self, scores1,  scores2, w1=0.5, w2=0.5, N=20):
         """
-        This function merge and sort documents retrieved by its weighte score (e.g., title and body).
+        This function merge and sort documents retrieved by its weighted score (e.g., title and body).
 
         Parameters:
         -----------
@@ -241,6 +265,16 @@ class Ranker:
                                     w_page_rank: float = 0.25,
                                     w_page_views: float = 0.25,
                                     N: int = 10):
+        """
+        :param title_scores: A list containing doc_ids and scores returned by the title search
+        :param page_rank_scores: A list containing doc_ids and scores returned by page rank
+        :param page_views_scores: A list containing doc_ids and scores returned by page views
+        :param w_title: weight for title.
+        :param w_page_rank: weight for page rank.
+        :param w_page_views: weight for page views.
+        :param N: Number of results to return
+        :return: A merged ranking of 3 search methods
+        """
         try:
             title_scores_std = self._min_max_scale(title_scores)
             page_rank_scores_std = self._min_max_scale(page_rank_scores)

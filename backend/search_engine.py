@@ -1,13 +1,9 @@
-from typing import Iterator, List, Tuple, Any
+from typing import List, Tuple
 
-import numpy as np
-import pandas as pd
-
-from BM25 import BM25
-from inverted_index_gcp import InvertedIndex
+from ranking.BM25 import BM25
 from pickle_handler import PickleHandler
 from query_processor import QueryProcessor
-from ranker import Ranker
+from ranking.ranker import Ranker
 
 INDICES = ['text', 'text_with_stemming', 'title', 'title_with_stemming', 'anchor_text']
 PICKLE_FILES = ['idf_text', 'idf_text_with_stemming', 'page_views', 'dl_text', 'dl_text_with_stemming', 'dl_title',
@@ -24,7 +20,7 @@ class SearchEngine:
         self.set_indices()
         self.set_dicts()
 
-    def set_indices(self):
+    def set_indices(self) -> None:
         for index_name in INDICES:
             setattr(self, f'{index_name}_index', self.pickle_handler.get_index(index_name))
             index = getattr(self, f'{index_name}_index')
@@ -32,13 +28,18 @@ class SearchEngine:
             index.posting_lists = {}
             print(f'Successfully read {index_name} index')
 
-    def set_dicts(self):
+    def set_dicts(self) -> None:
         for file in PICKLE_FILES:
             setattr(self, f'{file}_dict', self.pickle_handler.read_pickle_from_gcp(f'{file}.pkl'))
             print(f'Successfully read {file} dictionary')
 
-    def search_body(self, query: str, stemming: bool = False, N: int = 100, type: str = 'tfidf',
-                    expand: bool = False, similar_words: int = 6, similarity: float = 0.7):
+    def search_body(self, query: str,
+                    stemming: bool = False,
+                    N: int = 100,
+                    type: str = 'tfidf',
+                    expand: bool = False,
+                    similar_words: int = 6,
+                    similarity: float = 0.7) -> List[Tuple[int, str]]:
         """
         Given a query, uses the body of documents to retrieve relevant documents.
         :param query: str
@@ -56,7 +57,10 @@ class SearchEngine:
                                           similarity=similarity)
         return [(doc_id, self.id2title_dict[doc_id]) for (doc_id, score) in ranks]
 
-    def search_body_tfidf(self, query: str, stemming: bool = False, N: int = 100) -> List[Tuple[int, float]]:
+    def search_body_tfidf(self,
+                          query: str,
+                          stemming: bool = False,
+                          N: int = 100) -> List[Tuple[int, float]]:
         """
         Given a query, uses TFIDF on the body of documents to retrieve relevant documents.
         :param query: str
@@ -78,8 +82,15 @@ class SearchEngine:
         cosine_dict = self.ranker.cosine_similarity(D, Q, self.docs_norm_dict)
         return self.ranker.top_N_documents(cosine_dict, N)
 
-    def search_body_BM25(self, query: str, k1: float = 2.0, b: float = 0.75, stemming: bool = False, N: int = 100,
-                         expand: bool = False, similar_words: int = 6, similarity: float = 0.7,
+    def search_body_BM25(self,
+                         query: str,
+                         k1: float = 2.0,
+                         b: float = 0.75,
+                         stemming: bool = False,
+                         N: int = 100,
+                         expand: bool = False,
+                         similar_words: int = 6,
+                         similarity: float = 0.7,
                          add_anchor: bool = False) -> List[Tuple[int, float]]:
         """
         Given a query, uses BM25 on the body of documents to retrieve relevant documents.
@@ -100,8 +111,13 @@ class SearchEngine:
         bm25 = BM25(index=index, dl_dict=dl_dict, k1=k1, b=b, anchor_index=self.anchor_text_index)
         return bm25.search(processed_query, N, add_anchor=add_anchor)
 
-    def search_title(self, query: str, stemming: bool = False, N: int = 100, type: str = 'binary',
-                     expand: bool = False, similar_words: int = 6, similarity: float = 0.7,
+    def search_title(self,
+                     query: str,
+                     stemming: bool = False,
+                     N: int = 100, type: str = 'binary',
+                     expand: bool = False,
+                     similar_words: int = 6,
+                     similarity: float = 0.7,
                      add_anchor: bool = False) -> List[Tuple[int, str]]:
         """
         Given a query, uses the title of documents to retrieve relevant documents.
@@ -120,8 +136,15 @@ class SearchEngine:
                                            similarity=similarity, add_anchor=add_anchor)
             return [(doc_id, self.id2title_dict[doc_id]) for (doc_id, score) in ranks]
 
-    def search_title_BM25(self, query: str, k1: float = 2.0, b: float = 0.75, stemming: bool = False, N: int = 100,
-                          expand: bool = False, similar_words: int = 6, similarity: float = 0.7,
+    def search_title_BM25(self,
+                          query: str,
+                          k1: float = 2.0,
+                          b: float = 0.75,
+                          stemming: bool = False,
+                          N: int = 100,
+                          expand: bool = False,
+                          similar_words: int = 6,
+                          similarity: float = 0.7,
                           add_anchor: bool = False) -> List[Tuple[int, float]]:
         """
         Given a query, uses BM25 on the title of documents to retrieve relevant documents.
@@ -142,8 +165,14 @@ class SearchEngine:
         bm25 = BM25(index=index, dl_dict=dl_dict, k1=k1, b=b, anchor_index=self.anchor_text_index)
         return bm25.search(processed_query, N, add_anchor=add_anchor)
 
-    def search_body_and_title_BM25(self, query: str, stemming: bool = False, N: int = 100, w1: float = 0.5,
-                                   w2: float = 0.5, expand: bool = False, similar_words: int = 6,
+    def search_body_and_title_BM25(self,
+                                   query: str,
+                                   stemming: bool = False,
+                                   N: int = 100,
+                                   w1: float = 0.5,
+                                   w2: float = 0.5,
+                                   expand: bool = False,
+                                   similar_words: int = 6,
                                    similarity: float = 0.7,
                                    add_anchor: bool = False) -> List[Tuple[int, str]]:
         body_scores = self.search_body_BM25(query, stemming=stemming, N=N, expand=expand, similar_words=similar_words,
@@ -155,8 +184,14 @@ class SearchEngine:
         merged_scores = self.ranker.merge_results(body_scores, title_scores, w1=w1, w2=w2)
         return [(doc_id, self.id2title_dict[doc_id]) for (doc_id, score) in merged_scores]
 
-    def search_body_tfidf_and_title_BM25(self, query: str, stemming: bool = False, N: int = 100, w1: float = 0.5,
-                                         w2: float = 0.5, expand: bool = False, similar_words: int = 6,
+    def search_body_tfidf_and_title_BM25(self,
+                                         query: str,
+                                         stemming: bool = False,
+                                         N: int = 100,
+                                         w1: float = 0.5,
+                                         w2: float = 0.5,
+                                         expand: bool = False,
+                                         similar_words: int = 6,
                                          similarity: float = 0.7,
                                          add_anchor: bool = False) -> List[Tuple[int, str]]:
         body_scores = self.search_body_tfidf(query, stemming=stemming, N=N)
@@ -194,7 +229,7 @@ class SearchEngine:
                         w_title: float = 0.8,
                         w_page_rank: float = 0.5,
                         w_page_views: float = 0.5,
-                        N: int = 5):
+                        N: int = 5) -> List[Tuple[int, str]]:
         body_scores = self.search_body_BM25(query,
                                             k1=k_body,
                                             b=b_body,
@@ -235,7 +270,7 @@ class SearchEngine:
         ranks = self.ranker.binary_ranking(processed_query, index)
         return [(doc_id, self.id2title_dict[doc_id]) for doc_id in ranks if doc_id in self.id2title_dict.keys()]
 
-    def page_rank(self, wiki_ids: List[int]):
+    def page_rank(self, wiki_ids: List[int]) -> List[float]:
         """
         Given a list of wiki_ids, returns the page rank of each id
         :param wiki_ids: List of wiki ids
@@ -245,7 +280,7 @@ class SearchEngine:
         """
         return self.ranker.page_rank(self.page_rank_df, wiki_ids)
 
-    def page_views(self, wiki_ids: List[int]):
+    def page_views(self, wiki_ids: List[int]) -> List[int]:
         """
         Given a list of wiki_ids, returns the page views of each id
         :param wiki_ids: List of wiki ids

@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 
-from search_engine import SearchEngine
+from backend.search_engine import SearchEngine
 
 
 class MyFlaskApp(Flask):

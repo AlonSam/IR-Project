@@ -1,14 +1,14 @@
-import pickle
 from collections import defaultdict, Counter
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import numpy as np
 from google.cloud import storage
+from backend.inverted_index_colab import InvertedIndex
 
-from inverted_index_gcp import InvertedIndex
-from tokenizer import Tokenizer
 from stemmer import Stemmer
+from tokenizer import Tokenizer
 import hashlib
+import pyspark as spark
 
 NUM_BUCKETS = 124
 
@@ -18,19 +18,20 @@ def _hash(s):
 
 
 def token2bucket_id(token):
-  return int(_hash(token),16) % NUM_BUCKETS
+    return int(_hash(token), 16) % NUM_BUCKETS
 
 
 class PreProcessor:
-    def __init__(self):
+    def __init__(self, spark):
         self.client = storage.Client()
+        self.spark = spark
         self.stemmer = Stemmer()
         self.tokenizer = Tokenizer()
 
-    def read_gcp_files(self, paths: List[str], index_type: str):
-        parquet_file = self.spark.read.parquet(*paths)
-        num_of_docs = parquet_file.count()
-        return parquet_file.select(index_type, "id").rdd, num_of_docs
+    def read_files(self, path: str, index_type: str):
+        parquet_file = self.spark.read.parquet(path)
+        num_of_docs = 1000
+        return parquet_file.limit(1000).select(index_type, "id").rdd, num_of_docs
 
     @staticmethod
     def _reduce_word_counts(word_counts: List[Tuple]) -> List[Tuple]:
@@ -65,10 +66,17 @@ class PreProcessor:
 
     @staticmethod
     def calculate_idf(postings, num_of_docs: int, as_dict: bool = True):
-        w2idf = postings.mapValues(lambda term: np.log(num_of_docs / len(term)))
+        w2idf = postings.mapValues(lambda term: np.log10(num_of_docs / len(term)))
         if as_dict:
             return w2idf.collectAsMap()
         return w2idf
+
+    @staticmethod
+    def calculate_tf_idf(postings, idf, as_dict: bool = True):
+        tf_idf = postings.map(lambda token: (token[0], [(doc[0], doc[1] * idf[token[0]]) for doc in token[1]]))
+        if as_dict is True:
+            return tf_idf.collectAsMap()
+        return tf_idf
 
     @staticmethod
     def calculate_term_total(postings, as_dict: bool = True):
@@ -79,12 +87,9 @@ class PreProcessor:
 
     def calculate_dl(self, doc_text_pairs, index_type: str, as_dict: bool = True):
         dl = doc_text_pairs.map(lambda x: {x['id']: len(self.tokenizer.tokenize(x[index_type]))})
-        if as_dict is True:
-            return dl.collectAsMap()
-        return dl
 
     @staticmethod
-    def partition_postings_and_write(postings, bucket_name: str, index_name: str):
+    def partition_postings_and_write(postings, index_name: str):
         ''' A function that partitions the posting lists into buckets, writes out
         all posting lists in a bucket to disk, and returns the posting locations for
         each bucket. Partitioning should be done through the use of `token2bucket`
@@ -104,7 +109,7 @@ class PreProcessor:
             more details.
         '''
         rdd = postings.map(lambda x: (token2bucket_id(x[0]), [x])).reduceByKey(lambda x, y: x + y)
-        posting_locs_rdd = rdd.map(lambda x: InvertedIndex.write_a_posting_list(x, bucket_name, index_name))
+        posting_locs_rdd = rdd.map(lambda x: InvertedIndex.write_a_posting_list(x, index_name))
         return posting_locs_rdd
 
     def _word_count(self, text: str, doc_id: int, stemming: bool) -> List[Tuple]:
@@ -129,24 +134,23 @@ class PreProcessor:
             counter = Counter(tokens)
         return [(token, (doc_id, count)) for (token, count) in counter.items()]
 
-    def get_super_posting_locs(self, bucket_name, index_name) -> defaultdict:
+    @staticmethod
+    def get_super_posting_locs(postings_locs_list: List[Dict]) -> defaultdict:
         super_posting_locs = defaultdict(list)
-        for blob in self.client.list_blobs(bucket_name, prefix=f'postings_gcp_{index_name}'):
-            if not blob.name.endswith("pickle"):
-                continue
-            with blob.open("rb") as f:
-                posting_locs = pickle.load(f)
-                for k, v in posting_locs.items():
-                    super_posting_locs[k].extend(v)
+        for posting_loc in postings_locs_list:
+            for k, v in posting_loc.items():
+                super_posting_locs[k].extend(v)
         return super_posting_locs
 
-    def process(self, doc_text_pairs, index_type: str, stemming: bool = False, anchor: bool = False):
+    def process(self, path: str, index_type: str, stemming: bool = False, anchor: bool = False):
+        doc_text_pairs, num_of_docs = self.read_files(path, index_type)
         if anchor:
             doc_text_pairs = doc_text_pairs.map(lambda x: x[0]).flatMap(lambda x: x)
             index_type = 'text'
-        word_counts = doc_text_pairs.flatMap(lambda x: self._word_count(text=x[index_type], doc_id=x['id'], stemming=stemming))
+        tokenizer = Tokenizer()
+        word_counts = doc_text_pairs.flatMap(
+            lambda x: self._word_count(text=x[index_type], doc_id=x['id'], stemming=stemming))
         postings = word_counts.groupByKey().mapValues(self._reduce_word_counts)
         if anchor:
             postings = postings.mapValues(lambda x: list(set(x)))
-        return postings
-
+        return postings, num_of_docs
