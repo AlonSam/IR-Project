@@ -31,8 +31,6 @@ class SearchEngine:
             index.name = index_name
             index.posting_lists = {}
             print(f'Successfully read {index_name} index')
-            # index.download_posting_locs(BUCKET_NAME, index_name)
-            # print(f'Successfully transferred all posting locs for {index_name}')
 
     def set_dicts(self):
         for file in PICKLE_FILES:
@@ -183,19 +181,32 @@ class SearchEngine:
         ranks = self.ranker.binary_ranking(processed_query, index)
         return [(doc_id, self.id2title_dict[doc_id]) for doc_id in ranks]
 
-    def ultimate_search(self, query, config):
+    def ultimate_search(self,
+                        query,
+                        k_body: float = 1.5,
+                        b_body: float = 0.2,
+                        k_title: float = 1.5,
+                        b_title: float = 0.2,
+                        stemming: bool = True,
+                        add_anchor: bool = True,
+                        expand: bool = False,
+                        w_body: float = 0.8,
+                        w_title: float = 0.8,
+                        w_page_rank: float = 0.5,
+                        w_page_views: float = 0.5,
+                        N: int = 5):
         body_scores = self.search_body_BM25(query,
-                                            k1=config['body_k'],
-                                            b=config['body_b'],
-                                            stemming=config['stemming'],
-                                            expand=config['expand'],
-                                            add_anchor=config['add_anchor'])
+                                            k1=k_body,
+                                            b=b_body,
+                                            stemming=stemming,
+                                            expand=expand,
+                                            add_anchor=add_anchor)
         title_scores = self.search_title_BM25(query,
-                                              k1=config['title_k'],
-                                              b=config['title_b'],
-                                              stemming=config['stemming'],
-                                              expand=config['expand'],
-                                              add_anchor=config['add_anchor'])
+                                              k1=k_title,
+                                              b=b_title,
+                                              stemming=stemming,
+                                              expand=expand,
+                                              add_anchor=add_anchor)
         wiki_ids = list(set([doc_id for (doc_id, score) in title_scores + body_scores]))
         page_rank_scores = [(wiki_id, score) for (wiki_id, score) in zip(wiki_ids, self.page_rank(wiki_ids))]
         page_views_scores = [(wiki_id, score) for (wiki_id, score) in zip(wiki_ids, self.page_views(wiki_ids))]
@@ -203,12 +214,13 @@ class SearchEngine:
                                               title_scores,
                                               page_rank_scores,
                                               page_views_scores,
-                                              w_body=config['body_w'],
-                                              w_title=config['title_w'],
-                                              w_page_rank=config['page_rank_w'],
-                                              w_page_views=config['page_views_w'],
-                                              N=config['n'])
+                                              w_body=w_body,
+                                              w_title=w_title,
+                                              w_page_rank=w_page_rank,
+                                              w_page_views=w_page_views,
+                                              N=N)
         return [(doc_id, self.id2title_dict[doc_id]) for (doc_id, score) in merged_scores]
+
     def search_anchor(self, query: str) -> List[Tuple[int, str]]:
         """
         Given a query, uses binary ranking on the anchor text of documents to retrieve relevant documents.

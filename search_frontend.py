@@ -36,7 +36,7 @@ def search():
     if len(query) == 0:
         return jsonify(res)
     # BEGIN SOLUTION
-    res = search_engine.ultimate_search(query, stemming=True, add_anchor=True)
+    res = search_engine.ultimate_search(query)
     # END SOLUTION
     return jsonify(res)
 
@@ -183,36 +183,6 @@ def get_pageview():
     return jsonify(res)
 
 
-@app.route("/ultimate_search")
-def ultimate_search():
-    res = []
-    query = request.args.get('query', '')
-    if len(query) == 0:
-        return jsonify(res)
-    try:
-        config = {
-                'n': int(request.args.get('n', '')),
-                'body_k': float(request.args.get('body_k', '')),
-                'body_b': float(request.args.get('body_b', '')),
-                'body_w': float(request.args.get('body_w', '')),
-                'title_k': float(request.args.get('title_k', '')),
-                'title_b': float(request.args.get('title_b', '')),
-                'title_w': float(request.args.get('title_w', '')),
-                'page_rank_w': float(request.args.get('page_rank_w', '')),
-                'page_views_w': float(request.args.get('page_views_w', '')),
-                'add_anchor': bool(request.args.get('add_anchor', '')),
-                'stemming': bool(request.args.get('stemming', '')),
-                'expand': bool(request.args.get('expand', ''))
-        }
-    except Exception as e:
-        print('failed due to: ' + e)
-    print(
-        f"starting query: n:{config['n']} bw:{config['body_w']}, tw:{config['title_w']}, prw:{config['page_rank_w']}, pvw:{config['page_views_w']}")
-    res = search_engine.ultimate_search(query, config)
-    return jsonify(res)
-
-
 if __name__ == '__main__':
     # run the Flask RESTful API, make the server publicly available (host='0.0.0.0') on port 8080
-    # app.run(host='0.0.0.0', port=8080, debug=True)
-    app.run()
+    app.run(host='0.0.0.0', port=8080, debug=False)
